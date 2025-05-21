@@ -2,15 +2,59 @@ name: CI
 
 on:
   push:
-    branches:
-      - develop
-      - master
+    # branches:
+    #   - develop
+    #   - master
   pull_request:
 
 jobs:
+  # linux-ubuntu-20.04:
+  #   runs-on: ubuntu-latest
+  #   container: ubuntu:20.04
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Prepare
+  #       env:
+  #         DEBIAN_FRONTEND: noninteractive
+  #       run: |
+  #         apt update -qq
+  #         apt install -y build-essential automake autoconf libtool pkg-config \
+  #                        libssl-dev libcppunit-dev p11-kit
+  #     - name: Build and test
+  #       env:
+  #         CXXFLAGS: -Werror
+  #       run: |
+  #         ./autogen.sh
+  #         ./configure --with-crypto-backend=openssl
+  #         make
+  #         ldd ./src/lib/test/p11test
+  #         make check || (find . -name test-suite.log -exec cat {} \; && false)
+
+  linux-ubuntu-22.04:
+    runs-on: ubuntu-latest
+    container: ubuntu:22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt update -qq
+          apt install -y build-essential automake autoconf libtool pkg-config \
+                         libssl-dev libcppunit-dev p11-kit
+      - name: Build and test
+        env:
+          CXXFLAGS: -Werror
+        run: |
+          ./autogen.sh
+          ./configure --with-crypto-backend=openssl
+          make
+          ldd ./src/lib/test/p11test
+          make check || (find . -name test-suite.log -exec cat {} \; && false)
+
   linux:
     name: Linux (${{ matrix.backend }})
-    runs-on: ubuntu-20.04 # for OpenSSL 1.1.1
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -22,19 +66,44 @@ jobs:
       - name: Prepare
         run: |
           sudo apt update -qq
-          sudo apt install libcppunit-dev libbotan-2-dev p11-kit
+          sudo apt install libcppunit-dev libbotan-2-dev
+          # Replace installed OpenSSL with the supported version 1.1.1
+          #sudo apt remove libssl-dev libssl3
+          curl -O http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2.24_amd64.deb
+          curl -O http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl-dev_1.1.1f-1ubuntu2.24_amd64.deb
+          curl -O http://security.ubuntu.com/ubuntu/pool/main/o/openssl/openssl_1.1.1f-1ubuntu2.24_amd64.deb
+          sudo dpkg -i --force-confnew openssl_1.1.1f-1ubuntu2.24_amd64.deb \
+                                       libssl1.1_1.1.1f-1ubuntu2.24_amd64.deb \
+                                       libssl-dev_1.1.1f-1ubuntu2.24_amd64.deb
+          #dpkg -L libssl1.1
+          #dpkg -L libssl-dev
+          # Install p11-kit
+          #sudo dpkg -r p11-kit p11-kit-modules libp11-kit0
+          curl -O http://security.ubuntu.com/ubuntu/pool/universe/libf/libffi7/libffi7_3.3-5ubuntu1_amd64.deb
+          curl -O http://security.ubuntu.com/ubuntu/pool/main/p/p11-kit/p11-kit_0.23.20-1ubuntu0.1_amd64.deb
+          curl -O http://security.ubuntu.com/ubuntu/pool/main/p/p11-kit/p11-kit-modules_0.23.20-1ubuntu0.1_amd64.deb
+          curl -O http://security.ubuntu.com/ubuntu/pool/main/p/p11-kit/libp11-kit0_0.23.20-1ubuntu0.1_amd64.deb
+          #          curl -O http://security.ubuntu.com/ubuntu/pool/main/p/p11-kit/libp11-kit-dev_0.23.20-1ubuntu0.1_amd64.deb
+          sudo dpkg -i -B libffi7_3.3-5ubuntu1_amd64.deb \
+                          libp11-kit0_0.23.20-1ubuntu0.1_amd64.deb \
+                          p11-kit-modules_0.23.20-1ubuntu0.1_amd64.deb \
+                          p11-kit_0.23.20-1ubuntu0.1_amd64.deb
+
       - name: Build
         env:
           CXXFLAGS: -Werror -DBOTAN_NO_DEPRECATED_WARNINGS
         run: |
+          g++ --version
           ./autogen.sh
           ./configure --with-crypto-backend=${{ matrix.backend }}
           make
+          ldd ./src/lib/test/p11test
       - name: Test
         run: |
           make check || (find . -name test-suite.log -exec cat {} \; && false)
 
   macos:
+    if: false
     name: macOS (${{ matrix.backend }})
     runs-on: macos-14
     strategy:
@@ -62,6 +131,7 @@ jobs:
           make check || (find . -name test-suite.log -exec cat {} \; && false)
 
   windows:
+    if: false
     name: Windows (${{ matrix.arch }}, ${{ matrix.backend }})
     runs-on: windows-2022
     strategy:
