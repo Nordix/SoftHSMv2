@@ -1,7 +1,6 @@
 MAINTAINERCLEANFILES = 		$(srcdir)/Makefile.in
 
-AM_CPPFLAGS = 	-I$(srcdir)/../.. \
-				-I$(srcdir)/.. \
+AM_CPPFLAGS =			-I$(srcdir)/.. \
 				-I$(srcdir)/../common \
 				-I$(srcdir)/../pkcs11 \
 				@CPPUNIT_CFLAGS@ \
